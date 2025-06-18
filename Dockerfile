@@ -10,4 +10,4 @@ WORKDIR /app
 COPY . .
 RUN pip install -r requirements.txt
 
-CMD ["python", "your_app.py"]
+CMD ["python", "app.py"]
