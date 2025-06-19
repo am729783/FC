@@ -7,7 +7,6 @@ import math
 import json
 import base64
 from datetime import datetime
-from typing import Dict
 
 app = FastAPI()
 
@@ -41,7 +40,7 @@ class ExerciseTracker:
                 ],
                 'position': 'Stand FACING the camera',
                 'landmarks': ['LEFT_SHOULDER', 'LEFT_ELBOW', 'LEFT_WRIST',
-                             'RIGHT_SHOULDER', 'RIGHT_ELBOW', 'RIGHT_WRIST']
+                            'RIGHT_SHOULDER', 'RIGHT_ELBOW', 'RIGHT_WRIST']
             },
             'Lateral Raise': {
                 'description': 'Shoulder exercise for deltoid development',
@@ -53,7 +52,7 @@ class ExerciseTracker:
                 ],
                 'position': 'Stand FACING the camera',
                 'landmarks': ['LEFT_HIP', 'LEFT_SHOULDER', 'LEFT_ELBOW',
-                             'RIGHT_HIP', 'RIGHT_SHOULDER', 'RIGHT_ELBOW']
+                            'RIGHT_HIP', 'RIGHT_SHOULDER', 'RIGHT_ELBOW']
             },
             'Tricep Pushdown': {
                 'description': 'Isolation exercise for tricep development',
@@ -65,7 +64,7 @@ class ExerciseTracker:
                 ],
                 'position': 'Stand FACING the camera',
                 'landmarks': ['LEFT_SHOULDER', 'LEFT_ELBOW', 'LEFT_WRIST',
-                             'RIGHT_SHOULDER', 'RIGHT_ELBOW', 'RIGHT_WRIST']
+                            'RIGHT_SHOULDER', 'RIGHT_ELBOW', 'RIGHT_WRIST']
             },
             'Shoulder Press': {
                 'description': 'Vertical pressing movement for shoulder strength',
@@ -176,7 +175,7 @@ class ExerciseTracker:
             }
         }
 
-    def validate_form(self, exercise_type: str, landmarks: Dict, angles: Dict) -> str:
+    def validate_form(self, exercise_type, landmarks, angles):
         """Validate exercise form and return feedback"""
         try:
             if exercise_type == 'Bicep Curl':
@@ -231,6 +230,7 @@ class ExerciseTracker:
                     return "Keep right elbow aligned with shoulder"
                 if abs(angles['left'] - angles['right']) > 20:
                     return "Keep arms moving together"
+                    
                 return ""
                 
             elif exercise_type == 'Front Raise':
@@ -344,7 +344,7 @@ class ExerciseTracker:
         except Exception as e:
             return ""
 
-    def calculate_angle(self, a: list, b: list, c: list) -> float:
+    def calculate_angle(self, a, b, c):
         """Calculate angle between three points"""
         try:
             a = np.array(a)
@@ -432,8 +432,88 @@ async def exercise_endpoint(websocket: WebSocket):
                                         tracker.stage = "up"
                                         tracker.counter += 1
                             
-                            # Similar processing for other exercises...
-                            # (Include all exercise processing logic from your original code)
+                            elif tracker.exercise_type == 'Lateral Raise':
+                                left_hip = [landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x,
+                                          landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y]
+                                left_shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+                                               landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+                                left_elbow = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
+                                            landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].y]
+                                
+                                right_hip = [landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x,
+                                           landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y]
+                                right_shoulder = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
+                                                landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
+                                right_elbow = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
+                                             landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
+                                
+                                angles['left'] = tracker.calculate_angle(left_hip, left_shoulder, left_elbow)
+                                angles['right'] = tracker.calculate_angle(right_hip, right_shoulder, right_elbow)
+                                
+                                tracker.form_feedback = tracker.validate_form(tracker.exercise_type, landmarks, angles)
+                                
+                                if not tracker.form_feedback:
+                                    if angles['left'] < 30 and angles['right'] < 30:
+                                        tracker.stage = "down"
+                                    if angles['left'] > 85 and angles['right'] > 85 and tracker.stage == "down":
+                                        tracker.stage = "up"
+                                        tracker.counter += 1
+                            
+                            elif tracker.exercise_type == 'Tricep Pushdown':
+                                left_shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+                                               landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+                                left_elbow = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
+                                            landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].y]
+                                left_wrist = [landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].x,
+                                            landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
+                                
+                                right_shoulder = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
+                                                landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
+                                right_elbow = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
+                                             landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
+                                right_wrist = [landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,
+                                             landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
+                                
+                                angles['left'] = tracker.calculate_angle(left_shoulder, left_elbow, left_wrist)
+                                angles['right'] = tracker.calculate_angle(right_shoulder, right_elbow, right_wrist)
+                                
+                                tracker.form_feedback = tracker.validate_form(tracker.exercise_type, landmarks, angles)
+                                
+                                if not tracker.form_feedback:
+                                    if angles['left'] < 60 and angles['right'] < 60:
+                                        tracker.stage = "up"
+                                    if angles['left'] > 150 and angles['right'] > 150 and tracker.stage == "up":
+                                        tracker.stage = "down"
+                                        tracker.counter += 1
+                            
+                            elif tracker.exercise_type == 'Shoulder Press':
+                                left_shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+                                               landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+                                left_elbow = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
+                                            landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].y]
+                                left_wrist = [landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].x,
+                                            landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
+                                
+                                right_shoulder = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
+                                                landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
+                                right_elbow = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
+                                             landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
+                                right_wrist = [landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,
+                                             landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
+                                
+                                angles['left'] = tracker.calculate_angle(left_shoulder, left_elbow, left_wrist)
+                                angles['right'] = tracker.calculate_angle(right_shoulder, right_elbow, right_wrist)
+                                
+                                tracker.form_feedback = tracker.validate_form(tracker.exercise_type, landmarks, angles)
+                                
+                                if not tracker.form_feedback:
+                                    if angles['left'] < 60 and angles['right'] < 60:
+                                        tracker.stage = "down"
+                                    if angles['left'] > 160 and angles['right'] > 160 and tracker.stage == "down":
+                                        tracker.stage = "up"
+                                        tracker.counter += 1
+                            
+                            # ... (يمكن إضافة معالجة التمارين الأخرى بنفس النمط)
                             
                             await websocket.send_json({
                                 "counter": tracker.counter,
@@ -480,7 +560,7 @@ async def analyze_frame(request: Request):
             
             tracker.exercise_type = data.get('exercise_type', 'Bicep Curl')
             
-            # Exercise-specific processing
+            # Exercise-specific processing (مثال لتمرين واحد)
             if tracker.exercise_type == 'Bicep Curl':
                 left_shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
                                landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
