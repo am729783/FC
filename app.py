@@ -722,7 +722,7 @@ class ExerciseTracker:
         except:
             return ""
 
-        def _process_leg_curl(self, landmarks, angles):
+    def _process_leg_curl(self, landmarks, angles):
         """Process Leg Curl exercise"""
         try:
             # Calculate left leg angle
@@ -731,7 +731,7 @@ class ExerciseTracker:
             left_knee = [landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].x,
                        landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].y]
             left_ankle = [landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
-                         landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
             angles['left'] = self.calculate_angle(left_hip, left_knee, left_ankle)
             
             # Calculate right leg angle
@@ -748,10 +748,10 @@ class ExerciseTracker:
             
             # Counter logic
             if not self.form_feedback:
-                if angles['left'] > 150 and angles['right'] > 150:
+                if angles['left'] > 160 and angles['right'] > 160:
                     self.stage = "extended"
                 elif angles['left'] < 90 and angles['right'] < 90 and self.stage == "extended":
-                    self.stage = "curled"
+                    self.stage = "contracted"
                     self.counter += 1
             
             return {
@@ -793,7 +793,7 @@ class ExerciseTracker:
             left_knee = [landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].x,
                        landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].y]
             left_ankle = [landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].x,
-                         landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
+                        landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
             angles['left'] = self.calculate_angle(left_hip, left_knee, left_ankle)
             
             # Calculate right leg angle
@@ -811,8 +811,8 @@ class ExerciseTracker:
             # Counter logic
             if not self.form_feedback:
                 if angles['left'] < 90 and angles['right'] < 90:
-                    self.stage = "flexed"
-                elif angles['left'] > 160 and angles['right'] > 160 and self.stage == "flexed":
+                    self.stage = "contracted"
+                elif angles['left'] > 160 and angles['right'] > 160 and self.stage == "contracted":
                     self.stage = "extended"
                     self.counter += 1
             
@@ -849,7 +849,47 @@ class ExerciseTracker:
     def _process_abdominal_crunch(self, landmarks, angles):
         """Process Abdominal Crunch exercise"""
         try:
-            # Calculate shoulder-hip distance
+            # Calculate crunch angle
+            left_shoulder = [landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+                           landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+            left_hip = [landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].x,
+                      landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].y]
+            left_knee = [landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].x,
+                       landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+            angles['left'] = self.calculate_angle(left_shoulder, left_hip, left_knee)
+            
+            # Form validation
+            self.form_feedback = self._validate_abdominal_crunch_form(landmarks, angles)
+            
+            # Counter logic
+            if not self.form_feedback:
+                curl_distance = self.initial_shoulder_hip_dist - abs(left_shoulder[1] - left_hip[1])
+                
+                if curl_distance > 0.1:
+                    self.stage = "up"
+                elif curl_distance < 0.05 and self.stage == "up":
+                    self.stage = "down"
+                    self.counter += 1
+            
+            return {
+                "counter": self.counter,
+                "stage": self.stage,
+                "feedback": self.form_feedback,
+                "angles": angles
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in abdominal crunch processing: {e}")
+            return {
+                "counter": self.counter,
+                "stage": self.stage,
+                "feedback": "Error processing abdominal crunch",
+                "angles": angles
+            }
+
+    def _validate_abdominal_crunch_form(self, landmarks, angles):
+        """Validate Abdominal Crunch form"""
+        try:
             left_shoulder = [landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
                            landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
             left_hip = [landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].x,
@@ -857,7 +897,9 @@ class ExerciseTracker:
             
             curl_distance = self.initial_shoulder_hip_dist - abs(left_shoulder[1] - left_hip[1])
             
-            # Calculate neck angle
+            if curl_distance < 0.05:
+                return "Increase range of motion"
+            
             neck_angle = self.calculate_angle(
                 [landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].x,
                  landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].y],
@@ -867,38 +909,6 @@ class ExerciseTracker:
                  landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].y]
             )
             
-            # Form validation
-            self.form_feedback = self._validate_abdominal_crunch_form(landmarks, curl_distance, neck_angle)
-            
-            # Counter logic
-            if not self.form_feedback:
-                if curl_distance < 0.02:
-                    self.stage = "down"
-                elif curl_distance > 0.05 and self.stage == "down":
-                    self.stage = "up"
-                    self.counter += 1
-            
-            return {
-                "counter": self.counter,
-                "stage": self.stage,
-                "feedback": self.form_feedback,
-                "angles": {'curl_distance': curl_distance, 'neck_angle': neck_angle}
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in abdominal crunch processing: {e}")
-            return {
-                "counter": self.counter,
-                "stage": self.stage,
-                "feedback": "Error processing abdominal crunch",
-                "angles": {'curl_distance': 0, 'neck_angle': 0}
-            }
-
-    def _validate_abdominal_crunch_form(self, landmarks, curl_distance, neck_angle):
-        """Validate Abdominal Crunch form"""
-        try:
-            if curl_distance < 0.05:
-                return "Increase range of motion"
             if neck_angle < 130:
                 return "Don't pull with neck, use abs"
             return ""
@@ -931,10 +941,10 @@ class ExerciseTracker:
             
             # Counter logic
             if not self.form_feedback:
-                if angles['left'] > 150 and angles['right'] > 150:
-                    self.stage = "extended"
-                elif angles['left'] < 90 and angles['right'] < 90 and self.stage == "extended":
+                if angles['left'] < 30 and angles['right'] < 30:
                     self.stage = "contracted"
+                elif angles['left'] > 90 and angles['right'] > 90 and self.stage == "contracted":
+                    self.stage = "extended"
                     self.counter += 1
             
             return {
@@ -983,7 +993,7 @@ class ExerciseTracker:
             shoulder_ear_dist = abs((left_shoulder_y - left_ear_y) + (right_shoulder_y - right_ear_y)) / 2
             
             # Form validation
-            self.form_feedback = self._validate_shrugs_form(shoulder_ear_dist)
+            self.form_feedback = self._validate_shrugs_form(landmarks, shoulder_ear_dist)
             
             # Counter logic
             if not self.form_feedback:
@@ -997,7 +1007,7 @@ class ExerciseTracker:
                 "counter": self.counter,
                 "stage": self.stage,
                 "feedback": self.form_feedback,
-                "angles": {'shoulder_elevation': shoulder_ear_dist}
+                "shoulder_elevation": shoulder_ear_dist
             }
             
         except Exception as e:
@@ -1006,10 +1016,10 @@ class ExerciseTracker:
                 "counter": self.counter,
                 "stage": self.stage,
                 "feedback": "Error processing shrugs",
-                "angles": {'shoulder_elevation': 0}
+                "shoulder_elevation": 0
             }
 
-    def _validate_shrugs_form(self, shoulder_ear_dist):
+    def _validate_shrugs_form(self, landmarks, shoulder_ear_dist):
         """Validate Shrugs form"""
         try:
             if shoulder_ear_dist > 0.15:
@@ -1076,7 +1086,7 @@ async def exercise_endpoint(websocket: WebSocket):
         
         while True:
             try:
-                # استقبال البيانات بشكل صحيح
+                # Receive data correctly
                 data = await websocket.receive_text()
                 json_data = json.loads(data)
                 
@@ -1102,7 +1112,7 @@ async def exercise_endpoint(websocket: WebSocket):
                 # Handle frame data
                 if 'frame' in json_data and tracker.exercise_type:
                     try:
-                        # تحويل البيانات
+                        # Convert data
                         frame_data = json_data['frame']
                         if ',' in frame_data:
                             frame_bytes = base64.b64decode(frame_data.split(',')[1])
